@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.exam.model.mapper.QuestionMapper">
+
+    <!-- 分页查询题目列表（关联创建者名称、题库信息，支持多条件筛选+关键词搜索） -->
+    <select id="selectQuestionList" resultType="com.exam.model.vo.question.QuestionVO">
+        SELECT
+            q.id,
+            q.content,
+            q.question_type AS questionType,
+            q.option_a AS optionA,
+            q.option_b AS optionB,
+            q.option_c AS optionC,
+            q.option_d AS optionD,
+            q.answer,
+            q.analysis,
+            q.difficulty,
+            q.subject,
+            u.real_name AS creatorName,
+            q.create_time AS createTime,
+            q.update_time AS updateTime
+        FROM question q
+        LEFT JOIN user u ON q.creator_id = u.id
+        <where>
+            <if test="query.questionType != null">
+                AND q.question_type = #{query.questionType}
+            </if>
+            <if test="query.difficulty != null">
+                AND q.difficulty = #{query.difficulty}
+            </if>
+            <if test="query.subject != null and query.subject != ''">
+                AND q.subject = #{query.subject}
+            </if>
+            <if test="query.keyword != null and query.keyword != ''">
+                AND q.content LIKE CONCAT('%', #{query.keyword}, '%')
+            </if>
+            <if test="query.bankId != null">
+                AND q.id IN (
+                    SELECT bi.question_id FROM question_bank_item bi WHERE bi.bank_id = #{query.bankId}
+                )
+            </if>
+        </where>
+        ORDER BY q.create_time DESC
+    </select>
+
+</mapper>

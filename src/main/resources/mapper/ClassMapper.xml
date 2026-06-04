@@ -1,0 +1,27 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.exam.model.mapper.ClassMapper">
+
+    <!-- 查询班级列表（含课程名+教师名+学生数） -->
+    <select id="selectClassListWithDetails" resultType="com.exam.model.vo.course.ClassVO">
+        SELECT
+            cl.id,
+            cl.class_name AS className,
+            cl.course_id AS courseId,
+            co.course_name AS courseName,
+            cl.teacher_id AS teacherId,
+            u.real_name AS teacherName,
+            (SELECT COUNT(*) FROM class_student cs WHERE cs.class_id = cl.id) AS studentCount,
+            cl.create_time AS createTime
+        FROM class cl
+        LEFT JOIN course co ON cl.course_id = co.id
+        LEFT JOIN user u ON cl.teacher_id = u.id
+        <where>
+            <if test="courseId != null">
+                AND cl.course_id = #{courseId}
+            </if>
+        </where>
+        ORDER BY cl.create_time DESC
+    </select>
+
+</mapper>

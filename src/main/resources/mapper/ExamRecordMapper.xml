@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.exam.model.mapper.ExamRecordMapper">
+
+    <!-- 分页查询考试记录列表（关联考试名/用户名/真实姓名） -->
+    <select id="selectRecordList" resultType="com.exam.model.vo.exam.ExamRecordVO">
+        SELECT
+            er.id,
+            er.exam_id AS examId,
+            e.exam_name AS examName,
+            er.user_id AS userId,
+            u.username,
+            u.real_name AS realName,
+            er.start_time AS startTime,
+            er.submit_time AS submitTime,
+            er.status,
+            er.total_score AS totalScore,
+            er.objective_score AS objectiveScore,
+            er.subjective_score AS subjectiveScore
+        FROM exam_record er
+        LEFT JOIN exam e ON er.exam_id = e.id
+        LEFT JOIN user u ON er.user_id = u.id
+        <where>
+            <if test="examId != null">
+                AND er.exam_id = #{examId}
+            </if>
+            <if test="status != null and status != ''">
+                AND er.status = #{status}
+            </if>
+        </where>
+        ORDER BY er.create_time DESC
+    </select>
+
+</mapper>

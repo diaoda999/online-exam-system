@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.exam.model.mapper.PaperMapper">
+
+    <!-- 分页查询试卷列表（关联创建者名称+题目数量） -->
+    <select id="selectPaperListWithCreator" resultType="com.exam.model.vo.paper.PaperVO">
+        SELECT
+            p.id,
+            p.paper_name AS paperName,
+            p.paper_type AS paperType,
+            p.total_score AS totalScore,
+            p.pass_score AS passScore,
+            p.duration,
+            u.real_name AS creatorName,
+            (SELECT COUNT(*) FROM paper_question pq WHERE pq.paper_id = p.id) AS questionCount,
+            p.create_time AS createTime,
+            p.update_time AS updateTime
+        FROM paper p
+        LEFT JOIN user u ON p.creator_id = u.id
+        <where>
+            <if test="creatorId != null">
+                AND p.creator_id = #{creatorId}
+            </if>
+        </where>
+        ORDER BY p.create_time DESC
+    </select>
+
+</mapper>

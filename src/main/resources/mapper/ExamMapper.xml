@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.exam.model.mapper.ExamMapper">
+
+    <!-- 分页查询考试列表（关联试卷名/班级名/创建者名/提交人数） -->
+    <select id="selectExamList" resultType="com.exam.model.vo.exam.ExamVO">
+        SELECT
+            e.id,
+            e.exam_name AS examName,
+            e.paper_id AS paperId,
+            p.paper_name AS paperName,
+            e.class_id AS classId,
+            cl.class_name AS className,
+            e.start_time AS startTime,
+            e.end_time AS endTime,
+            e.duration,
+            e.status,
+            u.real_name AS creatorName,
+            (SELECT COUNT(*) FROM class_student cs WHERE cs.class_id = e.class_id) AS studentCount,
+            (SELECT COUNT(*) FROM exam_record er WHERE er.exam_id = e.id AND er.status = 'SUBMITTED') AS submittedCount,
+            e.create_time AS createTime
+        FROM exam e
+        LEFT JOIN paper p ON e.paper_id = p.id
+        LEFT JOIN class cl ON e.class_id = cl.id
+        LEFT JOIN user u ON e.creator_id = u.id
+        <where>
+            <if test="creatorId != null">
+                AND e.creator_id = #{creatorId}
+            </if>
+            <if test="status != null and status != ''">
+                AND e.status = #{status}
+            </if>
+        </where>
+        ORDER BY e.create_time DESC
+    </select>
+
+</mapper>
