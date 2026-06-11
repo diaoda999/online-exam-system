@@ -26,6 +26,8 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.Map;
+
 /**
  * 考试控制器
  */
@@ -102,7 +104,7 @@ public class ExamController {
 
     /**
      * 分页查询考试列表
-     * 管理员可查看全部，教师只看自己创建的，学生查看已参加的
+     * 管理员可查看全部，教师只看自己创建的，学生只查看所在班级的考试
      */
     @GetMapping("/list")
     public Result<IPage<ExamVO>> listExams(
@@ -115,11 +117,15 @@ public class ExamController {
         String roleCode = (String) httpRequest.getAttribute("roleCode");
 
         // 教师只能查看自己创建的考试
+        Long studentId = null;
         if ("TEACHER".equals(roleCode)) {
             creatorId = userId;
+        } else if ("STUDENT".equals(roleCode)) {
+            // 学生只查看所在班级的考试
+            studentId = userId;
         }
 
-        IPage<ExamVO> result = examService.listExams(creatorId, status, page, size);
+        IPage<ExamVO> result = examService.listExams(creatorId, status, page, size, studentId);
         return Result.success(result);
     }
 
@@ -185,6 +191,17 @@ public class ExamController {
         Long userId = (Long) httpRequest.getAttribute("userId");
         Long remaining = examService.getRemainingTime(id, userId);
         return Result.success(remaining);
+    }
+
+    /**
+     * 获取学生在某考试中已保存的答题进度
+     */
+    @GetMapping("/{id}/progress")
+    public Result<Map<Long, String>> getProgress(@PathVariable Long id,
+                                                   HttpServletRequest httpRequest) {
+        Long userId = (Long) httpRequest.getAttribute("userId");
+        Map<Long, String> progress = examService.getProgress(id, userId);
+        return Result.success(progress);
     }
 
     /**

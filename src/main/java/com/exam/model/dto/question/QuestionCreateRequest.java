@@ -38,6 +38,18 @@ public class QuestionCreateRequest {
     /** 选项D */
     private String optionD;
 
+    /** 选项E */
+    private String optionE;
+
+    /** 选项F */
+    private String optionF;
+
+    /** 选项G */
+    private String optionG;
+
+    /** 选项H */
+    private String optionH;
+
     /** 正确答案 */
     @NotBlank(message = "正确答案不能为空")
     private String answer;
@@ -48,6 +60,10 @@ public class QuestionCreateRequest {
     /** 难度：1-5，默认2 */
     @Builder.Default
     private Integer difficulty = 2;
+
+    /** 分值，默认5 */
+    @Builder.Default
+    private Integer score = 5;
 
     /** 学科分类 */
     private String subject;

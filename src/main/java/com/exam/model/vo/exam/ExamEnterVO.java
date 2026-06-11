@@ -6,6 +6,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * 进入考试返回视图对象
@@ -30,4 +31,7 @@ public class ExamEnterVO {
 
     /** 考试题目列表（不含正确答案和解析） */
     private List<ExamQuestionVO> questions;
+
+    /** 已保存的答题进度（questionId -> answer） */
+    private Map<Long, String> savedAnswers;
 }

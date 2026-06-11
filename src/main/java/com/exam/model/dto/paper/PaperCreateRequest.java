@@ -26,17 +26,14 @@ public class PaperCreateRequest {
     @NotNull(message = "试卷类型不能为空")
     private Integer paperType;
 
-    /** 总分 */
-    @NotNull(message = "总分不能为空")
+    /** 总分（后端自动计算，无需前端传入） */
     private Integer totalScore;
 
     /** 及格分，默认60 */
-    @NotNull(message = "及格分不能为空")
     @Builder.Default
     private Integer passScore = 60;
 
     /** 考试时长（分钟），默认120 */
-    @NotNull(message = "考试时长不能为空")
     @Builder.Default
     private Integer duration = 120;
 

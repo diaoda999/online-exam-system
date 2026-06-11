@@ -23,6 +23,12 @@ public class ExamQuestionVO {
     /** 题目类型 */
     private Integer questionType;
 
+    /** 难度 */
+    private Integer difficulty;
+
+    /** 学科分类 */
+    private String subject;
+
     /** 选项A */
     private String optionA;
 
@@ -34,6 +40,18 @@ public class ExamQuestionVO {
 
     /** 选项D */
     private String optionD;
+
+    /** 选项E */
+    private String optionE;
+
+    /** 选项F */
+    private String optionF;
+
+    /** 选项G */
+    private String optionG;
+
+    /** 选项H */
+    private String optionH;
 
     /** 该题分值 */
     private Integer score;

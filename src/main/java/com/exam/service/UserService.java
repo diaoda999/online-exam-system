@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.core.metadata.IPage;
 import com.exam.model.dto.user.LoginRequest;
 import com.exam.model.dto.user.RegisterRequest;
 import com.exam.model.dto.user.UserUpdateRequest;
+import com.exam.model.vo.user.AdminUserVO;
 import com.exam.model.vo.user.LoginVO;
 import com.exam.model.vo.user.UserVO;
 
@@ -60,4 +61,9 @@ public interface UserService {
      * @param id 用户ID
      */
     void deleteUser(Long id);
+
+    /**
+     * 管理员查询用户列表（含密码哈希）
+     */
+    IPage<AdminUserVO> listUsersForAdmin(String roleCode, Integer status, int page, int size);
 }

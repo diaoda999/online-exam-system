@@ -1,6 +1,5 @@
-package com.exam.model.entity;
+package com.exam.model.vo.user;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,42 +8,35 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 用户实体
+ * 管理员用户视图对象（含明文密码）
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("user")
-public class User {
+public class AdminUserVO {
 
-    /** 主键ID */
-    @TableId(type = IdType.AUTO)
+    /** 用户ID */
     private Long id;
 
     /** 用户名 */
     private String username;
 
-    /** 密码（BCrypt加密） */
-    private String password;
-
-    /** 明文密码（仅管理员可见） */
+    /** 明文密码 */
     private String plainPassword;
 
     /** 真实姓名 */
     private String realName;
 
-    /** 角色ID */
-    private Long roleId;
+    /** 角色编码 */
+    private String roleCode;
+
+    /** 角色名称 */
+    private String roleName;
 
     /** 状态：0-禁用 1-启用 */
     private Integer status;
 
     /** 创建时间 */
-    @TableField(fill = FieldFill.INSERT)
     private LocalDateTime createTime;
-
-    /** 更新时间 */
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updateTime;
 }

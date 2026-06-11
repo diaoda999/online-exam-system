@@ -30,6 +30,11 @@
             <if test="status != null and status != ''">
                 AND e.status = #{status}
             </if>
+            <if test="studentId != null">
+                AND e.class_id IN (
+                    SELECT cs.class_id FROM class_student cs WHERE cs.student_id = #{studentId}
+                )
+            </if>
         </where>
         ORDER BY e.create_time DESC
     </select>

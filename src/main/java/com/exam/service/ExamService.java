@@ -9,6 +9,8 @@ import com.exam.model.vo.exam.ExamDetailVO;
 import com.exam.model.vo.exam.ExamEnterVO;
 import com.exam.model.vo.exam.ExamVO;
 
+import java.util.Map;
+
 /**
  * 考试服务接口
  */
@@ -37,7 +39,7 @@ public interface ExamService {
     /**
      * 分页查询考试列表
      */
-    IPage<ExamVO> listExams(Long creatorId, String status, int page, int size);
+    IPage<ExamVO> listExams(Long creatorId, String status, int page, int size, Long studentId);
 
     /**
      * 发布考试
@@ -63,6 +65,11 @@ public interface ExamService {
      * MQ消费：自动提交考试
      */
     void autoSubmitExam(Long examId, Long userId);
+
+    /**
+     * 获取学生在某考试中已保存的答题进度
+     */
+    Map<Long, String> getProgress(Long examId, Long userId);
 
     /**
      * 获取剩余秒数

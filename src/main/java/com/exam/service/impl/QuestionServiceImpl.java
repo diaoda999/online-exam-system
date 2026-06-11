@@ -50,9 +50,14 @@ public class QuestionServiceImpl implements QuestionService {
                 .optionB(request.getOptionB())
                 .optionC(request.getOptionC())
                 .optionD(request.getOptionD())
+                .optionE(request.getOptionE())
+                .optionF(request.getOptionF())
+                .optionG(request.getOptionG())
+                .optionH(request.getOptionH())
                 .answer(request.getAnswer())
                 .analysis(request.getAnalysis())
                 .difficulty(request.getDifficulty() != null ? request.getDifficulty() : 2)
+                .score(request.getScore() != null ? request.getScore() : 5)
                 .subject(request.getSubject())
                 .creatorId(creatorId)
                 .build();
@@ -106,6 +111,18 @@ public class QuestionServiceImpl implements QuestionService {
         if (request.getOptionD() != null) {
             question.setOptionD(request.getOptionD());
         }
+        if (request.getOptionE() != null) {
+            question.setOptionE(request.getOptionE());
+        }
+        if (request.getOptionF() != null) {
+            question.setOptionF(request.getOptionF());
+        }
+        if (request.getOptionG() != null) {
+            question.setOptionG(request.getOptionG());
+        }
+        if (request.getOptionH() != null) {
+            question.setOptionH(request.getOptionH());
+        }
         if (request.getAnswer() != null) {
             question.setAnswer(request.getAnswer());
         }
@@ -117,6 +134,9 @@ public class QuestionServiceImpl implements QuestionService {
         }
         if (request.getSubject() != null) {
             question.setSubject(request.getSubject());
+        }
+        if (request.getScore() != null) {
+            question.setScore(request.getScore());
         }
 
         questionMapper.updateById(question);
@@ -187,9 +207,14 @@ public class QuestionServiceImpl implements QuestionService {
                 .optionB(question.getOptionB())
                 .optionC(question.getOptionC())
                 .optionD(question.getOptionD())
+                .optionE(question.getOptionE())
+                .optionF(question.getOptionF())
+                .optionG(question.getOptionG())
+                .optionH(question.getOptionH())
                 .answer(question.getAnswer())
                 .analysis(question.getAnalysis())
                 .difficulty(question.getDifficulty())
+                .score(question.getScore())
                 .subject(question.getSubject())
                 .creatorName(creator != null ? creator.getRealName() : null)
                 .createTime(question.getCreateTime())

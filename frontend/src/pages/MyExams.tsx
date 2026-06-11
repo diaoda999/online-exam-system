@@ -4,7 +4,7 @@ import {
 } from '@mui/material';
 import { DataGrid, type GridColDef, type GridPaginationModel } from '@mui/x-data-grid';
 import { useNavigate } from 'react-router-dom';
-import { listExams, getMyExamRecord, enterExam } from '../api/exam';
+import { listExams } from '../api/exam';
 import type { ExamVO, ExamStatus } from '../types';
 import { ExamStatusLabels } from '../types';
 
@@ -23,13 +23,10 @@ const MyExams: React.FC = () => {
 
   const fetchData = useCallback(async () => {
     try {
-      const data = await listExams({ status: 'IN_PROGRESS', page: paginationModel.page + 1, size: paginationModel.pageSize });
-      // Also get not_started exams
-      const data2 = await listExams({ status: 'NOT_STARTED', page: 1, size: 100 });
-      const data3 = await listExams({ status: 'ENDED', page: 1, size: 100 });
-      const allExams = [...data.records, ...data2.records, ...data3.records];
-      setRows(allExams);
-      setTotal(data.total + data2.total + data3.total);
+      // 优化：只发一次请求，不带 status 过滤，获取所有状态的考试
+      const data = await listExams({ page: paginationModel.page + 1, size: paginationModel.pageSize });
+      setRows(data.records);
+      setTotal(data.total);
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
     }

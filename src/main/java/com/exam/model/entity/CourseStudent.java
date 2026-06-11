@@ -9,21 +9,21 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 班级-学生关联实体（邀请制）
+ * 课程-学生关联实体（邀请制）
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("class_student")
-public class ClassStudent {
+@TableName("course_student")
+public class CourseStudent {
 
     /** 主键ID */
     @TableId(type = IdType.AUTO)
     private Long id;
 
-    /** 班级ID */
-    private Long classId;
+    /** 课程ID */
+    private Long courseId;
 
     /** 学生ID */
     private Long studentId;

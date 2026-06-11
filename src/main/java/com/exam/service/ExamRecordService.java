@@ -31,6 +31,13 @@ public interface ExamRecordService {
     void gradeSubjective(GradeRequest request);
 
     /**
+     * 批改单条记录的客观题（交卷后立即调用）
+     * @param recordId 考试记录ID
+     * @param paperId  试卷ID（用于获取分值信息）
+     */
+    void gradeSingleRecord(Long recordId, Long paperId);
+
+    /**
      * 根据考试ID和用户ID获取记录
      */
     ExamRecordVO getRecordByExamAndUser(Long examId, Long userId);

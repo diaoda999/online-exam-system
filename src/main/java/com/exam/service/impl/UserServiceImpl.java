@@ -13,6 +13,7 @@ import com.exam.model.entity.Role;
 import com.exam.model.entity.User;
 import com.exam.model.mapper.RoleMapper;
 import com.exam.model.mapper.UserMapper;
+import com.exam.model.vo.user.AdminUserVO;
 import com.exam.model.vo.user.LoginVO;
 import com.exam.model.vo.user.UserVO;
 import com.exam.service.UserService;
@@ -98,6 +99,7 @@ public class UserServiceImpl implements UserService {
         User user = User.builder()
                 .username(request.getUsername())
                 .password(encodedPassword)
+                .plainPassword(request.getPassword())
                 .realName(request.getRealName())
                 .roleId(role.getId())
                 .status(1)
@@ -119,7 +121,18 @@ public class UserServiceImpl implements UserService {
     @Override
     public IPage<UserVO> listUsers(String roleCode, Integer status, int page, int size) {
         Page<UserVO> pageParam = new Page<>(page, size);
-        return userMapper.selectUserListWithRole(pageParam, roleCode, status);
+        IPage<UserVO> result = userMapper.selectUserListWithRole(pageParam, roleCode, status);
+        // 修正 SQL 字符集导致的角色名乱码：用 Java 代码重新查 Role 表
+        result.getRecords().forEach(vo -> {
+            User user = userMapper.selectById(vo.getId());
+            if (user != null) {
+                Role role = roleMapper.selectById(user.getRoleId());
+                if (role != null) {
+                    vo.setRoleName(role.getRoleName());
+                }
+            }
+        });
+        return result;
     }
 
     @Override
@@ -168,5 +181,31 @@ public class UserServiceImpl implements UserService {
                 .status(user.getStatus())
                 .createTime(user.getCreateTime())
                 .build();
+    }
+
+    @Override
+    public IPage<AdminUserVO> listUsersForAdmin(String roleCode, Integer status, int page, int size) {
+        // 先查普通用户分页
+        IPage<UserVO> userPage = listUsers(roleCode, status, page, size);
+
+        // 转换为 AdminUserVO，带上明文密码和正确的角色名
+        IPage<AdminUserVO> adminPage = userPage.convert(userVO -> {
+            User user = userMapper.selectById(userVO.getId());
+            // 用 Java 代码获取正确的角色名，绕过 SQL 字符集乱码问题
+            Role role = user != null ? roleMapper.selectById(user.getRoleId()) : null;
+            String correctRoleName = role != null ? role.getRoleName() : userVO.getRoleName();
+
+            return AdminUserVO.builder()
+                    .id(userVO.getId())
+                    .username(userVO.getUsername())
+                    .plainPassword(user != null ? user.getPlainPassword() : null)
+                    .realName(userVO.getRealName())
+                    .roleCode(userVO.getRoleCode())
+                    .roleName(correctRoleName)
+                    .status(userVO.getStatus())
+                    .createTime(userVO.getCreateTime())
+                    .build();
+        });
+        return adminPage;
     }
 }

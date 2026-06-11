@@ -39,3 +39,6 @@ export const endExam = (id: number) =>
 
 export const getMyExamRecord = (id: number) =>
   api.get<Result<ExamRecordVO>>(`/exam/${id}/record`).then((res) => res.data.data);
+
+export const getProgress = (id: number) =>
+  api.get<Result<Record<number, string>>>(`/exam/${id}/progress`).then((res) => res.data.data);

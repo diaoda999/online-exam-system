@@ -109,6 +109,59 @@ export interface UserUpdateRequest {
   status?: number;
 }
 
+/** 管理员用户VO（含明文密码） */
+export interface AdminUserVO {
+  id: number;
+  username: string;
+  plainPassword: string;
+  realName: string;
+  roleCode: RoleCode;
+  roleName: string;
+  status: number;
+  createTime: string;
+}
+
+/** 班级学生邀请VO */
+export interface ClassStudentVO {
+  id: number;
+  classId: number;
+  className: string;
+  studentId: number;
+  studentName: string;
+  studentUsername: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  inviterId: number;
+  inviterName: string;
+  createTime: string;
+}
+
+/** 课程学生VO */
+export interface CourseStudentVO {
+  id: number;
+  courseId: number;
+  courseName: string;
+  studentId: number;
+  studentName: string;
+  studentUsername: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED';
+  inviterId: number;
+  inviterName: string;
+  createTime: string;
+}
+
+/** 班级需修读课程VO */
+export interface ClassCourseVO {
+  id: number;
+  classId: number;
+  className: string;
+  courseId: number;
+  courseName: string;
+  courseCode: string;
+  adderId: number;
+  adderName: string;
+  createTime: string;
+}
+
 /** 课程VO */
 export interface CourseVO {
   id: number;
@@ -152,6 +205,10 @@ export interface ClassDetailVO {
   className: string;
   courseId: number;
   courseName: string;
+  teacherId: number;
+  teacherName: string;
+  studentCount: number;
+  createTime: string;
   students: UserVO[];
 }
 
@@ -352,7 +409,14 @@ export interface ExamQuestionVO {
   difficulty: Difficulty;
   subject: string;
   content: string;
-  options: string;
+  optionA?: string;
+  optionB?: string;
+  optionC?: string;
+  optionD?: string;
+  optionE?: string;
+  optionF?: string;
+  optionG?: string;
+  optionH?: string;
   score: number;
   sortOrder: number;
 }
@@ -364,6 +428,7 @@ export interface ExamEnterVO {
   duration: number;
   remainingSeconds: number;
   questions: ExamQuestionVO[];
+  savedAnswers: Record<number, string>;
 }
 
 /** 答题项 */

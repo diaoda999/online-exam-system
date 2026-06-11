@@ -93,92 +93,77 @@ public class ExamRecordServiceImpl implements ExamRecordService {
                         .eq(ExamRecord::getStatus, ExamStatusConstant.RECORD_SUBMITTED)
         );
 
-        // 获取试卷题目及分值
-        List<PaperQuestion> paperQuestions = paperQuestionMapper.selectList(
-                new LambdaQueryWrapper<PaperQuestion>()
-                        .eq(PaperQuestion::getPaperId, exam.getPaperId())
-        );
-
         for (ExamRecord record : records) {
-            // 获取该记录的所有答案
-            List<ExamAnswer> answers = examAnswerMapper.selectList(
-                    new LambdaQueryWrapper<ExamAnswer>()
-                            .eq(ExamAnswer::getRecordId, record.getId())
-            );
-
-            int objectiveScore = 0;
-            boolean allGraded = true;
-
-            for (ExamAnswer answer : answers) {
-                // 找到对应题目的分值
-                PaperQuestion pq = paperQuestions.stream()
-                        .filter(p -> p.getQuestionId().equals(answer.getQuestionId()))
-                        .findFirst()
-                        .orElse(null);
-                if (pq == null) {
-                    continue;
-                }
-
-                Question question = questionMapper.selectById(answer.getQuestionId());
-                if (question == null) {
-                    continue;
-                }
-
-                // 仅自动批改客观题：单选/多选/判断
-                QuestionType questionType = QuestionType.of(question.getQuestionType());
-                if (questionType == QuestionType.SINGLE_CHOICE
-                        || questionType == QuestionType.MULTI_CHOICE
-                        || questionType == QuestionType.TRUE_FALSE) {
-
-                    int isCorrect = 0;
-                    int score = 0;
-
-                    // 完全匹配判分
-                    if (answer.getAnswer() != null && answer.getAnswer().trim().equals(question.getAnswer().trim())) {
-                        isCorrect = 1;
-                        score = pq.getScore();
-                    }
-
-                    answer.setScore(score);
-                    answer.setIsCorrect(isCorrect);
-                    examAnswerMapper.updateById(answer);
-                    objectiveScore += score;
-                } else {
-                    // 填空题和简答题不自动批改
-                    if (answer.getScore() == null || answer.getScore() == -1) {
-                        allGraded = false;
-                    }
-                }
-            }
-
-            // 更新客观题得分
-            record.setObjectiveScore(objectiveScore);
-
-            // 计算主观题得分（已批改的部分）
-            int subjectiveScore = 0;
-            for (ExamAnswer answer : answers) {
-                Question question = questionMapper.selectById(answer.getQuestionId());
-                if (question == null) {
-                    continue;
-                }
-                QuestionType questionType = QuestionType.of(question.getQuestionType());
-                if ((questionType == QuestionType.FILL_BLANK || questionType == QuestionType.SHORT_ANSWER)
-                        && answer.getScore() != null && answer.getScore() >= 0) {
-                    subjectiveScore += answer.getScore();
-                }
-            }
-            record.setSubjectiveScore(subjectiveScore);
-            record.setTotalScore(objectiveScore + subjectiveScore);
-
-            // 如果所有题目都已批改，更新状态
-            if (allGraded) {
-                record.setStatus(ExamStatusConstant.RECORD_GRADED);
-            }
-
-            examRecordMapper.updateById(record);
+            gradeSingleRecord(record.getId(), exam.getPaperId());
         }
 
         log.info("客观题自动批改完成: examId={}, recordCount={}", examId, records.size());
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void gradeSingleRecord(Long recordId, Long paperId) {
+        ExamRecord record = examRecordMapper.selectById(recordId);
+        if (record == null) {
+            log.warn("gradeSingleRecord: record not found, recordId={}", recordId);
+            return;
+        }
+
+        List<PaperQuestion> paperQuestions = paperQuestionMapper.selectList(
+                new LambdaQueryWrapper<PaperQuestion>().eq(PaperQuestion::getPaperId, paperId));
+
+        List<ExamAnswer> answers = examAnswerMapper.selectList(
+                new LambdaQueryWrapper<ExamAnswer>().eq(ExamAnswer::getRecordId, recordId));
+
+        int objectiveScore = 0;
+        boolean allGraded = true;
+
+        for (ExamAnswer answer : answers) {
+            PaperQuestion pq = paperQuestions.stream()
+                    .filter(p -> p.getQuestionId().equals(answer.getQuestionId()))
+                    .findFirst().orElse(null);
+            if (pq == null) continue;
+
+            Question question = questionMapper.selectById(answer.getQuestionId());
+            if (question == null) continue;
+
+            QuestionType questionType = QuestionType.of(question.getQuestionType());
+            if (questionType == QuestionType.SINGLE_CHOICE
+                    || questionType == QuestionType.MULTI_CHOICE
+                    || questionType == QuestionType.TRUE_FALSE) {
+                int isCorrect = 0;
+                int score = 0;
+                if (answer.getAnswer() != null && answer.getAnswer().trim().equals(question.getAnswer().trim())) {
+                    isCorrect = 1;
+                    score = pq.getScore();
+                }
+                answer.setScore(score);
+                answer.setIsCorrect(isCorrect);
+                examAnswerMapper.updateById(answer);
+                objectiveScore += score;
+            } else {
+                if (answer.getScore() == null || answer.getScore() == -1) allGraded = false;
+            }
+        }
+
+        record.setObjectiveScore(objectiveScore);
+        int subjectiveScore = 0;
+        for (ExamAnswer answer : answers) {
+            Question question = questionMapper.selectById(answer.getQuestionId());
+            if (question == null) continue;
+            QuestionType qt = QuestionType.of(question.getQuestionType());
+            if ((qt == QuestionType.FILL_BLANK || qt == QuestionType.SHORT_ANSWER)
+                    && answer.getScore() != null && answer.getScore() >= 0) {
+                subjectiveScore += answer.getScore();
+            }
+        }
+        record.setSubjectiveScore(subjectiveScore);
+        record.setTotalScore(objectiveScore + subjectiveScore);
+        if (allGraded) record.setStatus(ExamStatusConstant.RECORD_GRADED);
+        examRecordMapper.updateById(record);
+
+        log.info("gradeSingleRecord: recordId={}, objective={}, subjective={}, total={}",
+                recordId, objectiveScore, subjectiveScore, record.getTotalScore());
     }
 
     @Override

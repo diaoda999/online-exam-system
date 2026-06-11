@@ -19,9 +19,11 @@ public interface ExamMapper extends BaseMapper<Exam> {
      * @param page      分页参数
      * @param creatorId 创建者ID（可选）
      * @param status    考试状态（可选）
+     * @param studentId 学生ID（可选，用于筛选学生所在班级的考试）
      * @return 分页考试视图列表
      */
     IPage<ExamVO> selectExamList(IPage<ExamVO> page,
                                    @Param("creatorId") Long creatorId,
-                                   @Param("status") String status);
+                                   @Param("status") String status,
+                                   @Param("studentId") Long studentId);
 }

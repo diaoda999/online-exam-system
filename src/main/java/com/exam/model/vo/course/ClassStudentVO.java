@@ -1,6 +1,5 @@
-package com.exam.model.entity;
+package com.exam.model.vo.course;
 
-import com.baomidou.mybatisplus.annotation.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -9,36 +8,41 @@ import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
 /**
- * 班级-学生关联实体（邀请制）
+ * 班级学生邀请VO
  */
 @Data
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-@TableName("class_student")
-public class ClassStudent {
+public class ClassStudentVO {
 
-    /** 主键ID */
-    @TableId(type = IdType.AUTO)
+    /** 记录ID */
     private Long id;
 
     /** 班级ID */
     private Long classId;
 
+    /** 班级名称 */
+    private String className;
+
     /** 学生ID */
     private Long studentId;
 
-    /** 状态: PENDING-待确认, ACCEPTED-已加入, REJECTED-已拒绝 */
+    /** 学生姓名 */
+    private String studentName;
+
+    /** 学生用户名 */
+    private String studentUsername;
+
+    /** 状态: PENDING/ACCEPTED/REJECTED */
     private String status;
 
     /** 邀请人ID */
     private Long inviterId;
 
-    /** 创建时间 */
-    @TableField(fill = FieldFill.INSERT)
-    private LocalDateTime createTime;
+    /** 邀请人姓名 */
+    private String inviterName;
 
-    /** 更新时间 */
-    @TableField(fill = FieldFill.INSERT_UPDATE)
-    private LocalDateTime updateTime;
+    /** 创建时间 */
+    private LocalDateTime createTime;
 }

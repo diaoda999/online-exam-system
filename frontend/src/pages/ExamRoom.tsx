@@ -2,13 +2,37 @@ import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Box, Button, Paper, Typography, Radio, RadioGroup, FormControlLabel,
-  Checkbox, FormGroup, TextField, IconButton, Alert, Dialog, Divider,
+  Checkbox, FormGroup, TextField, Alert, Dialog, Divider,
   DialogTitle, DialogContent, DialogActions, Snackbar,
 } from '@mui/material';
 import { ArrowBack, ArrowForward, Send as SendIcon } from '@mui/icons-material';
 import { enterExam, saveProgress, submitExam } from '../api/exam';
 import type { ExamEnterVO, ExamQuestionVO, QuestionType, AnswerItem } from '../types';
 import Timer from '../components/Timer';
+
+/**
+ * 从 ExamQuestionVO 的独立选项字段构建选项列表
+ * 后端返回 optionA/B/C/D/... 而非 options JSON 字符串
+ */
+const buildOptions = (q: ExamQuestionVO): { label: string; value: string }[] => {
+  const options: { label: string; value: string }[] = [];
+  const optionMap: Record<string, string | undefined> = {
+    A: q.optionA,
+    B: q.optionB,
+    C: q.optionC,
+    D: q.optionD,
+    E: q.optionE,
+    F: q.optionF,
+    G: q.optionG,
+    H: q.optionH,
+  };
+  for (const [label, value] of Object.entries(optionMap)) {
+    if (value !== undefined && value !== null && value !== '') {
+      options.push({ label, value });
+    }
+  }
+  return options;
+};
 
 const ExamRoom: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -21,17 +45,25 @@ const ExamRoom: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' | 'info' });
   const autoSaveTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const submittedRef = useRef(false);
+  const savingRef = useRef<Record<number, boolean>>({});
 
-  // 进入考试
+  // 进入考试并加载已保存进度
   useEffect(() => {
     const enter = async () => {
       try {
         const data = await enterExam(examId);
         setExamData(data);
         localStorage.setItem('examToken', data.examToken);
+
+        // 从 enterExam 返回的 savedAnswers 恢复答题进度
+        if (data.savedAnswers && Object.keys(data.savedAnswers).length > 0) {
+          setAnswers(data.savedAnswers);
+        }
+
         setLoading(false);
       } catch (err: any) {
         setError(err.message || '进入考试失败');
@@ -46,12 +78,15 @@ const ExamRoom: React.FC = () => {
     if (!examData) return;
     autoSaveTimerRef.current = setInterval(() => {
       Object.entries(answers).forEach(([qId, answer]) => {
-        if (answer) {
+        if (answer && !savingRef.current[Number(qId)]) {
+          savingRef.current[Number(qId)] = true;
           saveProgress({
             examToken: examData.examToken,
             questionId: Number(qId),
             answer,
-          }).catch(() => { /* silent */ });
+          }).catch(() => { /* silent */ }).finally(() => {
+            savingRef.current[Number(qId)] = false;
+          });
         }
       });
     }, 30000);
@@ -77,23 +112,57 @@ const ExamRoom: React.FC = () => {
     };
   }, []);
 
-  const handleAnswerChange = (questionId: number, value: string) => {
-    setAnswers((prev) => ({ ...prev, [questionId]: value }));
-  };
+  /**
+   * 处理答案变更，同时保存进度到后端 Redis
+   */
+  const handleAnswerChange = useCallback((questionId: number, value: string) => {
+    setAnswers((prev) => {
+      const newAnswers = { ...prev, [questionId]: value };
+
+      // 答案变更时保存到后端 Redis（防抖：避免频繁请求）
+      if (examData && value && !savingRef.current[questionId]) {
+        savingRef.current[questionId] = true;
+        saveProgress({
+          examToken: examData.examToken,
+          questionId,
+          answer: value,
+        }).catch(() => { /* silent */ }).finally(() => {
+          savingRef.current[questionId] = false;
+        });
+      }
+
+      return newAnswers;
+    });
+  }, [examData]);
 
   const handleTimeUp = useCallback(() => {
     if (!submittedRef.current && examData) {
-      handleSubmit(true);
+      doSubmit(true);
     }
   }, [examData, answers]);
 
-  const handleSubmit = async (isAuto: boolean = false) => {
-    if (submittedRef.current) return;
-    if (!isAuto && !confirmOpen) {
-      setConfirmOpen(true);
-      return;
+  /**
+   * 点击交卷按钮：先检查答题完整性，再弹出确认对话框
+   */
+  const handleConfirmSubmit = () => {
+    if (!examData) return;
+    const questions = examData.questions;
+    const answeredCount = questions.filter((q) => answers[q.questionId] && answers[q.questionId].trim() !== '').length;
+    const unansweredCount = questions.length - answeredCount;
+
+    if (unansweredCount > 0) {
+      setConfirmMessage(`有题目没有回答，是否交卷？`);
+    } else {
+      setConfirmMessage(`确认交卷？`);
     }
-    setConfirmOpen(false);
+    setConfirmOpen(true);
+  };
+
+  /**
+   * 实际执行提交
+   */
+  const doSubmit = async (isAuto: boolean = false) => {
+    if (submittedRef.current) return;
     submittedRef.current = true;
 
     try {
@@ -119,15 +188,19 @@ const ExamRoom: React.FC = () => {
   const handleSaveProgress = async () => {
     if (!examData) return;
     try {
-      const currentQuestion = examData.questions[currentIndex];
-      if (answers[currentQuestion.questionId]) {
-        await saveProgress({
-          examToken: examData.examToken,
-          questionId: currentQuestion.questionId,
-          answer: answers[currentQuestion.questionId],
-        });
-        setSnackbar({ open: true, message: '已保存进度', severity: 'success' });
-      }
+      // 保存所有答案到后端
+      const savePromises = Object.entries(answers).map(([qId, answer]) => {
+        if (answer) {
+          return saveProgress({
+            examToken: examData.examToken,
+            questionId: Number(qId),
+            answer,
+          });
+        }
+        return Promise.resolve();
+      });
+      await Promise.all(savePromises);
+      setSnackbar({ open: true, message: '已保存进度', severity: 'success' });
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
     }
@@ -150,50 +223,49 @@ const ExamRoom: React.FC = () => {
 
   const questions = examData.questions;
   const currentQuestion = questions[currentIndex];
-  const answeredCount = questions.filter((q) => answers[q.questionId]).length;
+  const answeredCount = questions.filter((q) => answers[q.questionId] && answers[q.questionId].trim() !== '').length;
   const isLast = currentIndex === questions.length - 1;
   const isFirst = currentIndex === 0;
 
   const renderQuestionContent = (q: ExamQuestionVO) => {
     const userAnswer = answers[q.questionId] || '';
 
-    // 解析选项
-    let options: { label: string; value: string }[] = [];
-    try {
-      if (q.options) {
-        options = JSON.parse(q.options);
-      }
-    } catch {
-      options = [];
-    }
+    // 从后端返回的 optionA/B/C/D/... 字段构建选项列表
+    const options = buildOptions(q);
 
     switch (q.questionType as QuestionType) {
       case 1: // 单选题
         return (
           <RadioGroup value={userAnswer} onChange={(e) => handleAnswerChange(q.questionId, e.target.value)}>
             {options.map((opt) => (
-              <FormControlLabel key={opt.label || opt.value} value={opt.label || opt.value} control={<Radio />} label={`${opt.label || opt.value}. ${opt.value}`} sx={{ mb: 1, p: 1, borderRadius: 1, bgcolor: userAnswer === (opt.label || opt.value) ? '#e3f2fd' : 'transparent' }} />
+              <FormControlLabel
+                key={opt.label}
+                value={opt.label}
+                control={<Radio />}
+                label={`${opt.label}. ${opt.value}`}
+                sx={{ mb: 1, p: 1, borderRadius: 1, bgcolor: userAnswer === opt.label ? '#e3f2fd' : 'transparent' }}
+              />
             ))}
           </RadioGroup>
         );
 
       case 2: // 多选题
-        const selectedValues = userAnswer ? userAnswer.split(',') : [];
+        const selectedValues = userAnswer ? userAnswer.split(',').filter(v => v) : [];
         return (
           <FormGroup>
             {options.map((opt) => {
-              const val = opt.label || opt.value;
-              const checked = selectedValues.includes(val);
+              const checked = selectedValues.includes(opt.label);
               return (
                 <FormControlLabel
-                  key={val}
-                  control={<Checkbox checked={checked} onChange={(e) => {
+                  key={opt.label}
+                  control={<Checkbox checked={checked} onChange={() => {
                     const newValues = checked
-                      ? selectedValues.filter((v: string) => v !== val)
-                      : [...selectedValues, val];
-                    handleAnswerChange(q.questionId, newValues.sort().join(','));
+                      ? selectedValues.filter((v: string) => v !== opt.label)
+                      : [...selectedValues, opt.label];
+                    const newAnswer = newValues.sort().join(',');
+                    handleAnswerChange(q.questionId, newAnswer);
                   }} />}
-                  label={`${val}. ${opt.value}`}
+                  label={`${opt.label}. ${opt.value}`}
                   sx={{ mb: 1, p: 1, borderRadius: 1, bgcolor: checked ? '#e3f2fd' : 'transparent' }}
                 />
               );
@@ -256,7 +328,7 @@ const ExamRoom: React.FC = () => {
           <Typography variant="subtitle2" gutterBottom>题目导航</Typography>
           <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
             {questions.map((q, idx) => {
-              const answered = !!answers[q.questionId];
+              const answered = !!(answers[q.questionId] && answers[q.questionId].trim());
               const isCurrent = idx === currentIndex;
               return (
                 <Button
@@ -321,7 +393,7 @@ const ExamRoom: React.FC = () => {
                 variant="contained"
                 color="error"
                 startIcon={<SendIcon />}
-                onClick={() => setConfirmOpen(true)}
+                onClick={handleConfirmSubmit}
               >
                 交卷
               </Button>
@@ -343,13 +415,12 @@ const ExamRoom: React.FC = () => {
         <DialogTitle>确认交卷</DialogTitle>
         <DialogContent>
           <Typography>
-            您已回答 {answeredCount}/{questions.length} 题。
-            {answeredCount < questions.length && '还有题目未作答，'}确定要交卷吗？
+            {confirmMessage}
           </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setConfirmOpen(false)}>继续答题</Button>
-          <Button variant="contained" color="error" onClick={() => handleSubmit(false)}>确认交卷</Button>
+          <Button variant="contained" color="error" onClick={() => { setConfirmOpen(false); doSubmit(false); }}>确认交卷</Button>
         </DialogActions>
       </Dialog>
 

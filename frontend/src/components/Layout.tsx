@@ -7,7 +7,7 @@ import {
 } from '@mui/material';
 import {
   School, People, Class as ClassIcon, MenuBook, Inventory2,
-  Description, Assignment, Grading, Quiz, Score, Logout,
+  Description, Assignment, Grading, Quiz, Score, Logout, Mail,
 } from '@mui/icons-material';
 import { useAuth } from '../contexts/AuthContext';
 import type { RoleCode } from '../types';
@@ -32,6 +32,7 @@ const menuItems: MenuItemConfig[] = [
   { text: '用户管理', icon: <People />, path: '/users', roles: ['ADMIN'] },
   { text: '我的考试', icon: <Quiz />, path: '/my-exams', roles: ['STUDENT'] },
   { text: '我的成绩', icon: <Score />, path: '/my-scores', roles: ['STUDENT'] },
+  { text: '我的班级', icon: <ClassIcon />, path: '/my-invitations', roles: ['STUDENT'] },
 ];
 
 const Layout: React.FC = () => {

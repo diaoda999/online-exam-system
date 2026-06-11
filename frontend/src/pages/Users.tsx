@@ -1,47 +1,65 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import {
   Box, Button, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, MenuItem, IconButton, Snackbar, Alert,
+  TextField, MenuItem, IconButton, Snackbar, Alert, Tooltip, Typography,
 } from '@mui/material';
 import { DataGrid, type GridColDef, type GridPaginationModel } from '@mui/x-data-grid';
-import { Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
-import { listUsers, updateUser, deleteUser } from '../api/user';
-import type { UserVO, RoleCode } from '../types';
+import { Edit as EditIcon, Delete as DeleteIcon, Visibility as VisibilityIcon, VisibilityOff as VisibilityOffIcon } from '@mui/icons-material';
+import { listUsers, listUsersForAdmin, updateUser, deleteUser } from '../api/user';
+import type { UserVO, AdminUserVO, RoleCode } from '../types';
+import { useAuth } from '../contexts/AuthContext';
 
 const roleMap: Record<string, string> = { ADMIN: '管理员', TEACHER: '教师', STUDENT: '学生' };
 const statusMap: Record<number, string> = { 1: '正常', 0: '禁用' };
 
 const Users: React.FC = () => {
-  const [rows, setRows] = useState<UserVO[]>([]);
+  const { user } = useAuth();
+  const isAdmin = user?.roleCode === 'ADMIN';
+
+  const [rows, setRows] = useState<(UserVO | AdminUserVO)[]>([]);
   const [total, setTotal] = useState(0);
   const [paginationModel, setPaginationModel] = useState<GridPaginationModel>({ page: 0, pageSize: 10 });
   const [roleFilter, setRoleFilter] = useState('');
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' | 'warning' | 'info' });
 
+  // 密码可见性
+  const [visiblePasswords, setVisiblePasswords] = useState<Record<number, boolean>>({});
+
   // 编辑对话框
   const [editOpen, setEditOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<UserVO | null>(null);
+  const [editingUser, setEditingUser] = useState<UserVO | AdminUserVO | null>(null);
   const [editForm, setEditForm] = useState({ realName: '', status: 1 });
 
   const fetchData = useCallback(async () => {
     try {
-      const data = await listUsers({
+      const params = {
         roleCode: roleFilter || undefined,
         page: paginationModel.page + 1,
         size: paginationModel.pageSize,
-      });
-      setRows(data.records);
-      setTotal(data.total);
+      };
+      if (isAdmin) {
+        const data = await listUsersForAdmin(params);
+        setRows(data.records);
+        setTotal(data.total);
+      } else {
+        const data = await listUsers(params);
+        setRows(data.records);
+        setTotal(data.total);
+      }
     } catch (err: any) {
       setSnackbar({ open: true, message: err.message, severity: 'error' });
     }
-  }, [paginationModel, roleFilter]);
+  }, [paginationModel, roleFilter, isAdmin]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
-  const handleEdit = (user: UserVO) => {
-    setEditingUser(user);
-    setEditForm({ realName: user.realName, status: user.status });
+  const togglePassword = (id: number) => {
+    setVisiblePasswords((prev) => ({ ...prev, [id]: !prev[id] }));
+  };
+
+  const handleEdit = (u: UserVO | AdminUserVO) => {
+    setEditingUser(u);
+    setEditForm({ realName: u.realName, status: u.status });
     setEditOpen(true);
   };
 
@@ -71,6 +89,25 @@ const Users: React.FC = () => {
   const columns: GridColDef[] = [
     { field: 'id', headerName: 'ID', width: 80 },
     { field: 'username', headerName: '用户名', width: 120 },
+    ...(isAdmin ? [{
+      field: 'plainPassword',
+      headerName: '登录密码',
+      width: 180,
+      renderCell: (params: any) => {
+        const row = params.row as AdminUserVO;
+        const visible = visiblePasswords[row.id];
+        return (
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }}>
+            <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontFamily: 'monospace', fontSize: 13 }}>
+              {visible ? (row.plainPassword || '未记录') : '••••••••'}
+            </Typography>
+            <IconButton size="small" onClick={() => togglePassword(row.id)}>
+              {visible ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+            </IconButton>
+          </Box>
+        );
+      },
+    }] : []),
     { field: 'realName', headerName: '姓名', width: 120 },
     { field: 'roleName', headerName: '角色', width: 100 },
     { field: 'status', headerName: '状态', width: 80, renderCell: (params) => statusMap[params.value] || params.value },

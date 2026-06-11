@@ -32,6 +32,18 @@ public class QuestionUpdateRequest {
     /** 选项D */
     private String optionD;
 
+    /** 选项E */
+    private String optionE;
+
+    /** 选项F */
+    private String optionF;
+
+    /** 选项G */
+    private String optionG;
+
+    /** 选项H */
+    private String optionH;
+
     /** 正确答案 */
     private String answer;
 
@@ -43,4 +55,7 @@ public class QuestionUpdateRequest {
 
     /** 学科分类 */
     private String subject;
+
+    /** 分值 */
+    private Integer score;
 }

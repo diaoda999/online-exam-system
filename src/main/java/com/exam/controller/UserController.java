@@ -5,6 +5,7 @@ import com.exam.common.result.Result;
 import com.exam.model.dto.user.LoginRequest;
 import com.exam.model.dto.user.RegisterRequest;
 import com.exam.model.dto.user.UserUpdateRequest;
+import com.exam.model.vo.user.AdminUserVO;
 import com.exam.model.vo.user.LoginVO;
 import com.exam.model.vo.user.UserVO;
 import com.exam.service.UserService;
@@ -112,5 +113,23 @@ public class UserController {
 
         userService.deleteUser(id);
         return Result.success();
+    }
+
+    /**
+     * 管理员查询用户列表（含密码哈希）
+     */
+    @GetMapping("/admin/list")
+    public Result<IPage<AdminUserVO>> listUsersForAdmin(
+            @RequestParam(required = false) String roleCode,
+            @RequestParam(required = false) Integer status,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "10") int size,
+            HttpServletRequest httpRequest) {
+        String currentRoleCode = (String) httpRequest.getAttribute("roleCode");
+        if (!"ADMIN".equals(currentRoleCode)) {
+            return Result.error(403, "无权操作");
+        }
+        IPage<AdminUserVO> result = userService.listUsersForAdmin(roleCode, status, page, size);
+        return Result.success(result);
     }
 }

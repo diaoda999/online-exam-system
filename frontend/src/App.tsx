@@ -19,6 +19,7 @@ import Grading from './pages/Grading';
 import GradingDetail from './pages/GradingDetail';
 import MyExams from './pages/MyExams';
 import MyScores from './pages/MyScores';
+import MyInvitations from './pages/MyInvitations';
 
 const App: React.FC = () => {
   return (
@@ -49,6 +50,7 @@ const App: React.FC = () => {
             <Route path="grading/:id" element={<ProtectedRoute roles={['ADMIN', 'TEACHER']}><GradingDetail /></ProtectedRoute>} />
             <Route path="my-exams" element={<ProtectedRoute roles={['STUDENT']}><MyExams /></ProtectedRoute>} />
             <Route path="my-scores" element={<ProtectedRoute roles={['STUDENT']}><MyScores /></ProtectedRoute>} />
+            <Route path="my-invitations" element={<ProtectedRoute roles={['STUDENT']}><MyInvitations /></ProtectedRoute>} />
           </Route>
           {/* 考试答题页面独立布局（全屏） */}
           <Route path="/exam/:id" element={<ProtectedRoute roles={['STUDENT']}><ExamRoom /></ProtectedRoute>} />

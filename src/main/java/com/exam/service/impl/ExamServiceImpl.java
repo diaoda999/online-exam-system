@@ -39,6 +39,7 @@ import com.exam.model.vo.exam.ExamQuestionVO;
 import com.exam.model.vo.exam.ExamVO;
 import com.exam.model.vo.paper.PaperDetailVO;
 import com.exam.service.ExamService;
+import com.exam.service.ExamRecordService;
 import com.exam.service.PaperService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -77,6 +78,7 @@ public class ExamServiceImpl implements ExamService {
     private final ClassMapper classMapper;
     private final ClassStudentMapper classStudentMapper;
     private final PaperService paperService;
+    private final ExamRecordService examRecordService;
     private final RedisTemplate<String, Object> redisTemplate;
     private final RabbitTemplate rabbitTemplate;
 
@@ -200,9 +202,9 @@ public class ExamServiceImpl implements ExamService {
     }
 
     @Override
-    public IPage<ExamVO> listExams(Long creatorId, String status, int page, int size) {
+    public IPage<ExamVO> listExams(Long creatorId, String status, int page, int size, Long studentId) {
         Page<ExamVO> pageParam = new Page<>(page, size);
-        return examMapper.selectExamList(pageParam, creatorId, status);
+        return examMapper.selectExamList(pageParam, creatorId, status, studentId);
     }
 
     @Override
@@ -357,10 +359,16 @@ public class ExamServiceImpl implements ExamService {
                         .questionId(question.getId())
                         .content(question.getContent())
                         .questionType(question.getQuestionType())
+                        .difficulty(question.getDifficulty())
+                        .subject(question.getSubject())
                         .optionA(question.getOptionA())
                         .optionB(question.getOptionB())
                         .optionC(question.getOptionC())
                         .optionD(question.getOptionD())
+                        .optionE(question.getOptionE())
+                        .optionF(question.getOptionF())
+                        .optionG(question.getOptionG())
+                        .optionH(question.getOptionH())
                         .score(pq.getScore())
                         .sortOrder(pq.getSortOrder())
                         .build());
@@ -383,6 +391,9 @@ public class ExamServiceImpl implements ExamService {
             log.error("Redis写入考试计时器失败: examId={}, userId={}", examId, userId, e);
         }
 
+        // 获取已保存的答题进度
+        Map<Long, String> savedAnswers = getProgress(examId, userId);
+
         log.info("学生进入考试: examId={}, userId={}, remainingSeconds={}", examId, userId, remainingSeconds);
 
         return ExamEnterVO.builder()
@@ -391,6 +402,7 @@ public class ExamServiceImpl implements ExamService {
                 .duration(exam.getDuration())
                 .remainingSeconds(remainingSeconds)
                 .questions(questionVOs)
+                .savedAnswers(savedAnswers)
                 .build();
     }
 
@@ -464,21 +476,28 @@ public class ExamServiceImpl implements ExamService {
             }
         }
 
-        // 保存所有 ExamAnswer 记录
+        // 批量保存所有 ExamAnswer 记录
         for (Map.Entry<Long, String> entry : finalAnswers.entrySet()) {
-            ExamAnswer examAnswer = ExamAnswer.builder()
+            examAnswerMapper.insert(ExamAnswer.builder()
                     .recordId(record.getId())
                     .questionId(entry.getKey())
                     .answer(entry.getValue())
                     .score(-1)
-                    .build();
-            examAnswerMapper.insert(examAnswer);
+                    .build());
         }
 
         // 更新 ExamRecord
         record.setStatus(ExamStatusConstant.RECORD_SUBMITTED);
         record.setSubmitTime(LocalDateTime.now());
         examRecordMapper.updateById(record);
+
+        // 【新增】交卷后立即自动批改客观题
+        try {
+            examRecordService.gradeSingleRecord(record.getId(), exam.getPaperId());
+        } catch (Exception e) {
+            log.error("自动批改客观题失败: examId={}, userId={}", examId, userId, e);
+            // 批改失败不阻断提交流程，教师可后续手动批改
+        }
 
         // 清理 Redis 数据（含examToken反查key）
         cleanRedisData(examId, userId, request.getExamToken());
@@ -518,13 +537,12 @@ public class ExamServiceImpl implements ExamService {
 
         // 保存答案
         for (Map.Entry<Object, Object> entry : cachedAnswers.entrySet()) {
-            ExamAnswer examAnswer = ExamAnswer.builder()
+            examAnswerMapper.insert(ExamAnswer.builder()
                     .recordId(record.getId())
                     .questionId(Long.parseLong(entry.getKey().toString()))
                     .answer(entry.getValue().toString())
                     .score(-1)
-                    .build();
-            examAnswerMapper.insert(examAnswer);
+                    .build());
         }
 
         // 更新记录状态
@@ -532,10 +550,35 @@ public class ExamServiceImpl implements ExamService {
         record.setSubmitTime(LocalDateTime.now());
         examRecordMapper.updateById(record);
 
+        // 【新增】自动提交后也批改客观题
+        try {
+            Exam exam = examMapper.selectById(examId);
+            if (exam != null) {
+                examRecordService.gradeSingleRecord(record.getId(), exam.getPaperId());
+            }
+        } catch (Exception e) {
+            log.error("自动提交批改客观题失败: examId={}, userId={}", examId, userId, e);
+        }
+
         // 清理 Redis（自动提交时无examToken，反查key自然过期）
         cleanRedisData(examId, userId, null);
 
         log.info("自动提交考试完成: examId={}, userId={}, answerCount={}", examId, userId, cachedAnswers.size());
+    }
+
+    @Override
+    public Map<Long, String> getProgress(Long examId, Long userId) {
+        String progressKey = String.format(RedisKeyConstant.EXAM_PROGRESS, examId, userId);
+        Map<Long, String> result = new HashMap<>();
+        try {
+            Map<Object, Object> cachedAnswers = redisTemplate.opsForHash().entries(progressKey);
+            for (Map.Entry<Object, Object> entry : cachedAnswers.entrySet()) {
+                result.put(Long.parseLong(entry.getKey().toString()), entry.getValue().toString());
+            }
+        } catch (Exception e) {
+            log.error("Redis读取答题进度失败: examId={}, userId={}", examId, userId, e);
+        }
+        return result;
     }
 
     @Override
@@ -747,17 +790,9 @@ public class ExamServiceImpl implements ExamService {
      * 获取 ExamVO
      */
     private ExamVO getExamVOById(Long id) {
-        Page<ExamVO> page = new Page<>(1, 1);
-        IPage<ExamVO> result = examMapper.selectExamList(page, null, null);
-        // 直接用 mapper 查，此处简化为单查
-        Exam exam = examMapper.selectById(id);
-        if (exam == null) {
-            return null;
-        }
-
-        Page<ExamVO> singlePage = new Page<>(1, 1);
-        // 需要带条件的查询，这里直接通过列表查
-        IPage<ExamVO> examVOPage = examMapper.selectExamList(singlePage, null, null);
+        // 直接用 mapper 查询所有考试然后过滤（此处简化实现）
+        Page<ExamVO> singlePage = new Page<>(1, 1000);
+        IPage<ExamVO> examVOPage = examMapper.selectExamList(singlePage, null, null, null);
         for (ExamVO vo : examVOPage.getRecords()) {
             if (vo.getId().equals(id)) {
                 return vo;
